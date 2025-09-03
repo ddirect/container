@@ -98,7 +98,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 		Variance,
 		MaxKey, MaxRank, Iterations,
 		FinalLen, MaxLen,
-		UpsertNew, UpsertExisting, DeleteRandom, DeleteFirst, SetRank int
+		Set, GetOrCreateNew, GetOrCreateExisting, DeleteRandom, DeleteFirst, SetRank int
 	}
 
 	var (
@@ -109,6 +109,19 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 	)
 	ref := make(map[K]*refItem[K, R, V])
 	m := ranked.NewMap[K, R, V]()
+
+	create := func() bool {
+		k := K(rnd.IntN(maxKey))
+		r := R(rnd.IntN(maxRank))
+		v := V(rnd.Uint64())
+
+		m.Set(k, r, v)
+		ref[k] = &refItem[K, R, V]{k, r, v}
+		s.Set++
+
+		s.MaxLen = max(s.MaxLen, m.Len())
+		return true
+	}
 
 	getOrCreate := func() bool {
 		k := K(rnd.IntN(maxKey))
@@ -122,9 +135,9 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 			ri = new(refItem[K, R, V])
 			ref[k] = ri
 			ri.rank = r
-			s.UpsertNew++
+			s.GetOrCreateNew++
 		} else {
-			s.UpsertExisting++
+			s.GetOrCreateExisting++
 		}
 		item.Value = v
 		ri.key = k
@@ -201,7 +214,6 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 			if m.Len() == 0 {
 				runMulti(getOrCreate)
 			} else {
-				// bias towards getOrCreate
 				switch rnd.IntN(8) {
 				case 0:
 					runMulti(deleteRandom)
@@ -209,6 +221,8 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 					runMulti(deleteFirst)
 				case 2:
 					runMulti(setRank)
+				case 3, 4:
+					runMulti(create)
 				default:
 					runMulti(getOrCreate)
 				}
