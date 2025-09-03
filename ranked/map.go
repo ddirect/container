@@ -31,6 +31,18 @@ func (m *Map[K, R, V]) Clear() {
 	clear(m.m)
 }
 
+func (m *Map[K, R, V]) Set(key K, rank R, value V) MutableMapItem[K, R, V] {
+	item, found := m.m[key]
+	if found {
+		m.r.SetRank(item, rank)
+	} else {
+		item = m.r.Insert(rank, key)
+		m.m[key] = item
+	}
+	item.Value = value
+	return m.mutableMapItem(item)
+}
+
 func (m *Map[K, R, V]) GetOrCreate(key K, rankIfCreated R) (MutableMapItem[K, R, V], bool) {
 	item, found := m.m[key]
 	if !found {
