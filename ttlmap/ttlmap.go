@@ -3,7 +3,6 @@ package ttlmap
 import (
 	"fmt"
 	"iter"
-	"log"
 	"time"
 
 	"github.com/ddirect/container/ranked"
@@ -32,7 +31,7 @@ func getNow() timestamp {
 }
 
 // ttlmap.Map is a key value store where unused items are automatically removed when they expire. It is not safe to call any method concurrently
-// from different goroutines. This includes iterating on the expired items sequence. 
+// from different goroutines. This includes iterating on the expired items sequence.
 type Map[K comparable, V any] struct {
 	*ranked.Map[K, timestamp, V]
 	ttl          timestamp
@@ -69,7 +68,6 @@ func New[K comparable, V any](ttl, accuracy time.Duration) *Map[K, V] {
 	}
 
 	cleanup := func(yield func(Item[K, V]) bool) {
-		log.Print("looking for expired elements")
 		now := getNow()
 		for item := range m.RemoveOrdered() {
 			// checkTimer expects that there are no items with expiration <= now
@@ -123,10 +121,8 @@ func (m *Map[K, V]) Get(k K) MutableItem[K, V] {
 }
 
 func (m *Map[K, V]) refresh(item MutableItem[K, V], now timestamp) {
-	log.Printf("checking expiration time for key %v with expiration %v", item.Key(), time.Unix(0, int64(item.Rank())))
 	if item.Rank().Before(now + m.ttl - m.accuracy) {
 		item.SetRank(now + m.ttl)
-		log.Print("item now expires ", time.Unix(0, int64(item.Rank())))
 	}
 }
 
@@ -139,17 +135,10 @@ func (m *Map[K, V]) Expired() chan iter.Seq[Item[K, V]] {
 func (m *Map[K, V]) checkTimer(now timestamp) {
 	if m.timer == nil && m.Len() > 0 {
 		delay := m.Map.First().Rank() - now
-		if delay <= 0 {
-			panic(fmt.Sprint("wrong logic, delay is ", toDuration(delay)))
-		}
-		log.Printf("starting timer with delay %v", toDuration(delay+m.accuracy))
 		m.timer = time.AfterFunc(toDuration(delay+m.accuracy), m.queueCleanup)
 	} else if m.timer != nil && m.Len() == 0 {
 		if m.timer.Stop() {
-			log.Printf("timer stopped")
 			m.timer = nil
-		} else {
-			log.Printf("timer not stopped: it has already expired")
 		}
 	}
 }
