@@ -36,7 +36,6 @@ type Map[K comparable, V any] struct {
 	*ranked.Map[K, timestamp, V]
 	ttl          timestamp
 	accuracy     timestamp
-	expired      chan iter.Seq[Item[K, V]]
 	queueCleanup func()
 	timer        *time.Timer
 }
@@ -51,8 +50,20 @@ type (
 // the lifetime is not updated if the difference between the previous lifetime and the new lifetime is less than accuracy.
 // Then, the timer used to check for expired elements is set with a duration which is above the set ttl by the accuracy time.
 // In practice, ttl and accuracy define an expiration range: each item can be expected to expire between ttl-accuracy and ttl+accuracy
-// plus any delay processing sequences Expired channel.
-func New[K comparable, V any](ttl, accuracy time.Duration) *Map[K, V] {
+// plus any delay processing the sequence of expired items.
+// This version returns the map instance and a channel where to receive the iterators which must be processed in order for the items to be
+// removed from the map.
+func New[K comparable, V any](ttl, accuracy time.Duration) (*Map[K, V], <-chan iter.Seq[Item[K, V]]) {
+	expired := make(chan iter.Seq[Item[K, V]])
+	return NewAsync(ttl, accuracy, func(items iter.Seq[Item[K, V]]) {
+		expired <- items
+	}), expired
+}
+
+// NewAsync is like New, but instead of returning a channel, it gets a handling method which is called when expired items
+// have to be processed. Note that the iterator must not be called concurrently with other ttlmap methods, so proper syncrhonization
+// must still be ensured externally.
+func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired func(iter.Seq[Item[K, V]])) *Map[K, V] {
 	if ttl < time.Millisecond {
 		panic(fmt.Errorf("ttlmap: invalid time-to-live: %v", ttl))
 	}
@@ -64,7 +75,6 @@ func New[K comparable, V any](ttl, accuracy time.Duration) *Map[K, V] {
 		Map:      ranked.NewMap[K, timestamp, V](),
 		ttl:      fromDuration(ttl),
 		accuracy: fromDuration(accuracy),
-		expired:  make(chan iter.Seq[Item[K, V]]),
 	}
 
 	cleanup := func(yield func(Item[K, V]) bool) {
@@ -81,7 +91,7 @@ func New[K comparable, V any](ttl, accuracy time.Duration) *Map[K, V] {
 
 	// defining this here saves an allocation in the AfterFunc call
 	m.queueCleanup = func() {
-		m.expired <- cleanup
+		handleExpired(cleanup)
 	}
 
 	return m
@@ -124,12 +134,6 @@ func (m *Map[K, V]) refresh(item MutableItem[K, V], now timestamp) {
 	if item.Rank().Before(now + m.ttl - m.accuracy) {
 		item.SetRank(now + m.ttl)
 	}
-}
-
-// Expired returns a channel where iterators to expired items are returned.
-// Receiving from the channel and using the iterator is required in order for the items to expire.
-func (m *Map[K, V]) Expired() chan iter.Seq[Item[K, V]] {
-	return m.expired
 }
 
 func (m *Map[K, V]) checkTimer(now timestamp) {

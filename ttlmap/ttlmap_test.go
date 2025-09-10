@@ -40,7 +40,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 		log.Printf("ttl %v - accuracy %v", ttl, accuracy)
 
 		ref := make(map[int]time.Time)
-		m := ttlmap.New[int, struct{}](ttl, accuracy)
+		m, expired := ttlmap.New[int, struct{}](ttl, accuracy)
 
 		set := func(key int) {
 			m.Set(key, struct{}{})
@@ -142,7 +142,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 				select {
 				case <-timer.C:
 					log.Print("test timer channel flushed")
-				case <-m.Expired():
+				case <-expired:
 					log.Print("expired items channel flushed")
 				default:
 					return
@@ -154,7 +154,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 			select {
 			case <-timer.C:
 				handleNextOp(0)
-			case seq := <-m.Expired():
+			case seq := <-expired:
 				handleExpired(seq)
 			}
 		}
