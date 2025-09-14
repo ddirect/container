@@ -47,13 +47,16 @@ func Test_Basic(t *testing.T) {
 	// fully sort the reference by rank and then key
 	s1 := slices.SortedFunc(maps.Values(ref), cmpRankThenKey)
 
+	// same for All()
+	s2 := slices.SortedFunc(toRefItems(m.All()), cmpRankThenKey)
+
 	// use native sorting for ranks and then only sort by key if the rank is the same
-	s2 := slices.Collect(toRefItems(m.RemoveOrdered()))
-	slices.SortStableFunc(s2, cmpOnlyKeyIfRankSame)
+	s3 := slices.Collect(toRefItems(m.RemoveOrdered()))
+	slices.SortStableFunc(s3, cmpOnlyKeyIfRankSame)
 
 	assert.Equal(t, s1, s2)
+	assert.Equal(t, s1, s3)
 	assert.Equal(t, 0, m.Len())
-
 }
 
 func Test_Delete(t *testing.T) {

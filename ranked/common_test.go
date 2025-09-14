@@ -61,10 +61,11 @@ type refItem[K cmp.Ordered, R comparerWithCompare[R], V any] struct {
 }
 
 func cmpRankThenKey[K cmp.Ordered, R comparerWithCompare[R], V any](a, b refItem[K, R, V]) int {
-	if a.rank.Compare(b.rank) == 0 {
+	rcmp := a.rank.Compare(b.rank)
+	if rcmp == 0 {
 		return cmp.Compare(a.key, b.key)
 	}
-	return a.rank.Compare(b.rank)
+	return rcmp
 }
 
 func cmpOnlyKeyIfRankSame[K cmp.Ordered, R comparerWithCompare[R], V any](a, b refItem[K, R, V]) int {

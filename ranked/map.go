@@ -56,12 +56,27 @@ func (m *Map[K, R, V]) Get(key K) MutableMapItem[K, R, V] {
 	return m.mutableMapItem(m.m[key])
 }
 
+func (m *Map[K, R, V]) Exists(key K) bool {
+	_, ok := m.m[key]
+	return ok
+}
+
 func (m *Map[K, R, V]) First() MutableMapItem[K, R, V] {
 	return m.mutableMapItem(m.r.First())
 }
 
 func (m *Map[K, R, V]) Random(rnd *rand.Rand) MutableMapItem[K, R, V] {
 	return m.mutableMapItem(m.r.Random(rnd))
+}
+
+func (m *Map[K, R, V]) All() iter.Seq[*MapItem[K, R, V]] {
+	return func(yield func(*MapItem[K, R, V]) bool) {
+		for it := range m.r.Values() {
+			if !yield((*MapItem[K, R, V])(it)) {
+				return
+			}
+		}
+	}
 }
 
 func (m *Map[K, R, V]) RemoveOrdered() iter.Seq[*MapItem[K, R, V]] {
