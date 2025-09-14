@@ -5,6 +5,7 @@ import (
 	"iter"
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"github.com/ddirect/container"
 )
@@ -55,6 +56,10 @@ func (h *List[R, T, A]) First() *Item[R, T, A] {
 
 func (h *List[R, T, A]) Random(rnd *rand.Rand) *Item[R, T, A] {
 	return h.s[rnd.IntN(h.Len())]
+}
+
+func (h *List[R, T, A]) Values() iter.Seq[*Item[R, T, A]] {
+	return slices.Values(h.s)
 }
 
 func (h *List[R, T, A]) DeleteFirst() {

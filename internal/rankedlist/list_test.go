@@ -93,3 +93,22 @@ func Test_CannotDeleteTwice(t *testing.T) {
 	h.Delete(item)
 	assert.Panics(t, func() { h.Delete(item) })
 }
+
+func Test_Values(t *testing.T) {
+	const count = 1000
+	var h rankedlist.List[int32B, struct{}, int]
+	for i := range count {
+		h.Insert(int32B(rand.Int32()), i+1)
+	}
+
+	ref := make([]int, count)
+	for val := range h.Values() {
+		i := val.Auxiliary() - 1
+		assert.Zero(t, ref[i])
+		ref[i] = i + 1
+	}
+
+	for i, v := range ref {
+		assert.Equal(t, i+1, v)
+	}
+}
