@@ -40,11 +40,6 @@ type Map[K comparable, V any] struct {
 	timer        *time.Timer
 }
 
-type (
-	MutableItem[K comparable, V any] = ranked.MutableMapItem[K, timestamp, V]
-	Item[K comparable, V any]        = *ranked.MapItem[K, timestamp, V]
-)
-
 // New creates a new ttlmap. ttl sets the coarse lifetime of each item. ttl must be at least 1ms; accuracy must be < ttl and can be 0.
 // the lifetime is extended every time an item is read or written. accuracy is used for two purposes: firstly,
 // the lifetime is not updated if the difference between the previous lifetime and the new lifetime is less than accuracy.
@@ -105,7 +100,8 @@ func (m *Map[K, V]) Set(k K, v V) MutableItem[K, V] {
 
 func (m *Map[K, V]) GetOrCreate(k K) (MutableItem[K, V], bool) {
 	now := getNow()
-	item, found := m.Map.GetOrCreate(k, now+m.ttl)
+	rItem, found := m.Map.GetOrCreate(k, now+m.ttl)
+	item := MutableItem[K, V]{rItem}
 	if found {
 		m.refresh(item, now)
 	}
@@ -123,7 +119,8 @@ func (m *Map[K, V]) Delete(k K) bool {
 
 func (m *Map[K, V]) Get(k K) MutableItem[K, V] {
 	now := getNow()
-	item := m.Map.Get(k)
+	rItem := m.Map.Get(k)
+	item := MutableItem[K, V]{rItem}
 	if item.Present() {
 		m.refresh(item, now)
 	}
