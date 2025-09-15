@@ -25,7 +25,7 @@ func listItem[K comparable, R container.Comparer[R], V any](it *MapItem[K, R, V]
 }
 
 func (it *MapItem[K, R, V]) Present() bool {
-	return it != nil
+	return listItem(it).Present()
 }
 
 func (it *MapItem[K, R, V]) Key() K {

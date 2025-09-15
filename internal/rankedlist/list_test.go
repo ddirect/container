@@ -112,3 +112,11 @@ func Test_Values(t *testing.T) {
 		assert.Equal(t, i+1, v)
 	}
 }
+
+func Test_Present(t *testing.T) {
+	var h rankedlist.List[int32B, struct{}, int]
+	item := h.Insert(1, 0)
+	assert.True(t, item.Present())
+	h.Delete(item)
+	assert.False(t, item.Present())
+}

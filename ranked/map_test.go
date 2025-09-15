@@ -73,19 +73,24 @@ func Test_Delete(t *testing.T) {
 	time3 := time.Unix(3, 0)
 
 	item1, found := m.GetOrCreate(0, time1)
+	assert.True(t, item1.Present())
 	assert.False(t, found)
 	item1_rank := item1.Rank()
 
 	item2, found := m.GetOrCreate(0, time2)
+	assert.True(t, item1 == item2)
 	assert.True(t, found)
 	assert.True(t, item2.Rank().Equal(item1_rank))
 
-	_, found = m.GetOrCreate(1, time3)
+	item3, found := m.GetOrCreate(1, time3)
+	assert.True(t, item3.Present())
 	assert.False(t, found)
 
 	assert.True(t, m.Delete(0))
+	assert.False(t, item1.Present())
 	assert.False(t, m.Delete(0))
 	assert.True(t, m.Delete(1))
+	assert.False(t, item3.Present())
 	assert.False(t, m.Delete(2))
 }
 
