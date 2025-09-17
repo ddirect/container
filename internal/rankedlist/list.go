@@ -9,24 +9,25 @@ import (
 	"github.com/ddirect/container"
 )
 
-type List[R container.Comparer[R], T any, A any] struct {
-	s []*Item[R, T, A]
+type List[R container.Comparer[R], T any] struct {
+	s []*Item[R, T]
 }
 
-func (h *List[R, T, A]) Len() int {
+func (h *List[R, T]) Len() int {
 	return len(h.s)
 }
 
-func (h *List[R, T, A]) ulen() uint {
+func (h *List[R, T]) ulen() uint {
 	return uint(len(h.s))
 }
 
-func (h *List[R, T, A]) Clear() {
+func (h *List[R, T]) Clear() {
 	clear(h.s)
+	h.s = h.s[:0]
 }
 
-func (h *List[R, T, A]) RemoveOrdered() iter.Seq[*Item[R, T, A]] {
-	return func(yield func(*Item[R, T, A]) bool) {
+func (h *List[R, T]) RemoveOrdered() iter.Seq[*Item[R, T]] {
+	return func(yield func(*Item[R, T]) bool) {
 		for h.Len() > 0 {
 			item := h.First()
 			if !yield(item) {
@@ -37,11 +38,10 @@ func (h *List[R, T, A]) RemoveOrdered() iter.Seq[*Item[R, T, A]] {
 	}
 }
 
-func (h *List[R, T, A]) Insert(rank R, aux A) *Item[R, T, A] {
+func (h *List[R, T]) Insert(rank R) *Item[R, T] {
 	n := h.ulen()
-	item := &Item[R, T, A]{
+	item := &Item[R, T]{
 		rank:    rank,
-		aux:     aux,
 		indexP1: n + 1,
 	}
 	h.s = append(h.s, item)
@@ -49,25 +49,25 @@ func (h *List[R, T, A]) Insert(rank R, aux A) *Item[R, T, A] {
 	return item
 }
 
-func (h *List[R, T, A]) First() *Item[R, T, A] {
+func (h *List[R, T]) First() *Item[R, T] {
 	return h.s[0]
 }
 
-func (h *List[R, T, A]) Random(rnd *rand.Rand) *Item[R, T, A] {
+func (h *List[R, T]) Random(rnd *rand.Rand) *Item[R, T] {
 	return h.s[rnd.IntN(h.Len())]
 }
 
-func (h *List[R, T, A]) Values() iter.Seq[*Item[R, T, A]] {
+func (h *List[R, T]) Values() iter.Seq[*Item[R, T]] {
 	return slices.Values(h.s)
 }
 
-func (h *List[R, T, A]) DeleteFirst() {
+func (h *List[R, T]) DeleteFirst() {
 	h.Delete(h.First())
 }
 
-func (h *List[R, T, A]) Delete(item *Item[R, T, A]) {
+func (h *List[R, T]) Delete(item *Item[R, T]) {
 	n := h.ulen() - 1
-	var last *Item[R, T, A]
+	var last *Item[R, T]
 	i := item.indexP1 - 1
 	if n != i {
 		if i > n {
@@ -86,14 +86,14 @@ func (h *List[R, T, A]) Delete(item *Item[R, T, A]) {
 	}
 }
 
-func (h *List[R, T, A]) SetRank(item *Item[R, T, A], rank R) {
+func (h *List[R, T]) SetRank(item *Item[R, T], rank R) {
 	item.rank = rank
 	if !h.down(item) {
 		h.up(item)
 	}
 }
 
-func (h *List[R, T, A]) parent(item *Item[R, T, A]) *Item[R, T, A] {
+func (h *List[R, T]) parent(item *Item[R, T]) *Item[R, T] {
 	i := item.indexP1 - 1
 	if i == 0 {
 		return nil
@@ -101,7 +101,7 @@ func (h *List[R, T, A]) parent(item *Item[R, T, A]) *Item[R, T, A] {
 	return h.s[(i-1)/2]
 }
 
-func (h *List[R, T, A]) up(item *Item[R, T, A]) {
+func (h *List[R, T]) up(item *Item[R, T]) {
 	for {
 		p := h.parent(item)
 		if p == nil || !item.rank.Before(p.rank) {
@@ -111,7 +111,7 @@ func (h *List[R, T, A]) up(item *Item[R, T, A]) {
 	}
 }
 
-func (h *List[R, T, A]) children(item *Item[R, T, A]) (c1 *Item[R, T, A], c2 *Item[R, T, A]) {
+func (h *List[R, T]) children(item *Item[R, T]) (c1 *Item[R, T], c2 *Item[R, T]) {
 	i := 2*item.indexP1 - 1 // i := 2*realIndex + 1 = 2*(item.indexP1-1) + 1 = 2*item.indexP1 - 1
 	if i < h.ulen() {
 		c1 = h.s[i]
@@ -123,7 +123,7 @@ func (h *List[R, T, A]) children(item *Item[R, T, A]) (c1 *Item[R, T, A], c2 *It
 	return
 }
 
-func (h *List[R, T, A]) down(item *Item[R, T, A]) bool {
+func (h *List[R, T]) down(item *Item[R, T]) bool {
 	res := false
 	for {
 		c, c2 := h.children(item)
@@ -141,7 +141,7 @@ func (h *List[R, T, A]) down(item *Item[R, T, A]) bool {
 	}
 }
 
-func (h *List[R, T, A]) swap(a, b *Item[R, T, A]) {
+func (h *List[R, T]) swap(a, b *Item[R, T]) {
 	a.indexP1, b.indexP1 = b.indexP1, a.indexP1
 	h.s[a.indexP1-1] = a
 	h.s[b.indexP1-1] = b

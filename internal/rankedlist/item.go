@@ -4,25 +4,24 @@ import (
 	"github.com/ddirect/container"
 )
 
-type Item[R container.Comparer[R], T any, A any] struct {
-	Value   T
+type Item[R container.Comparer[R], T any] struct {
+	value   T
 	rank    R
-	aux     A
 	indexP1 uint // index plus 1 - if zero, the item does not belong to the container
 }
 
-func (it *Item[R, T, A]) Rank() R {
+func (it *Item[R, T]) Value() *T {
+	return &it.value
+}
+
+func (it *Item[R, T]) Rank() R {
 	return it.rank
 }
 
-func (it *Item[R, T, A]) Auxiliary() A {
-	return it.aux
-}
-
-func (it *Item[R, T, A]) Present() bool {
+func (it *Item[R, T]) Present() bool {
 	return it != nil && it.indexP1 > 0
 }
 
-func (it *Item[R, T, A]) setNotPresent() {
+func (it *Item[R, T]) setNotPresent() {
 	it.indexP1 = 0
 }

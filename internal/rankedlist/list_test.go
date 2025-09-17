@@ -28,21 +28,19 @@ func Test_Basic(t *testing.T) {
 	type (
 		R = int32B
 		T int
-		A int64
 	)
 
-	var h rankedlist.List[R, T, A]
+	var h rankedlist.List[R, T]
 
 	type refItem struct {
 		rank  R
 		value T
-		aux   A
 	}
 
-	toRefItems := func(it iter.Seq[*rankedlist.Item[R, T, A]]) iter.Seq[refItem] {
+	toRefItems := func(it iter.Seq[*rankedlist.Item[R, T]]) iter.Seq[refItem] {
 		return func(yield func(refItem) bool) {
 			for i := range it {
-				if !yield(refItem{i.Rank(), i.Value, i.Auxiliary()}) {
+				if !yield(refItem{i.Rank(), *i.Value()}) {
 					return
 				}
 			}
@@ -53,19 +51,14 @@ func Test_Basic(t *testing.T) {
 	for range n {
 		r := rand.N[R](maxR)
 		v := rand.N[T](maxT)
-		a := rand.N[A](maxA)
-		item := h.Insert(r, a)
-		item.Value = v
+		item := h.Insert(r)
+		*item.Value() = v
 		assert.Equal(t, r, item.Rank())
-		assert.Equal(t, a, item.Auxiliary())
-		ref = append(ref, refItem{r, v, a})
+		ref = append(ref, refItem{r, v})
 	}
 
 	slices.SortFunc(ref, func(a, b refItem) int {
 		if a.rank == b.rank {
-			if a.value == b.value {
-				return cmp.Compare(a.aux, b.aux)
-			}
 			return cmp.Compare(a.value, b.value)
 		}
 		return cmp.Compare(a.rank, b.rank)
@@ -74,9 +67,6 @@ func Test_Basic(t *testing.T) {
 	s := slices.Collect(toRefItems(h.RemoveOrdered()))
 	slices.SortStableFunc(s, func(a, b refItem) int {
 		if a.rank == b.rank {
-			if a.value == b.value {
-				return cmp.Compare(a.aux, b.aux)
-			}
 			return cmp.Compare(a.value, b.value)
 		}
 		return 0
@@ -87,23 +77,23 @@ func Test_Basic(t *testing.T) {
 }
 
 func Test_CannotDeleteTwice(t *testing.T) {
-	var h rankedlist.List[int32B, int32, int32]
-	item := h.Insert(0, 0)
-	h.Insert(1, 1)
+	var h rankedlist.List[int32B, int32]
+	item := h.Insert(0)
+	h.Insert(1)
 	h.Delete(item)
 	assert.Panics(t, func() { h.Delete(item) })
 }
 
 func Test_Values(t *testing.T) {
 	const count = 1000
-	var h rankedlist.List[int32B, struct{}, int]
+	var h rankedlist.List[int32B, int]
 	for i := range count {
-		h.Insert(int32B(rand.Int32()), i+1)
+		*h.Insert(int32B(rand.Int32())).Value() = i + 1
 	}
 
 	ref := make([]int, count)
 	for val := range h.Values() {
-		i := val.Auxiliary() - 1
+		i := *val.Value() - 1
 		assert.Zero(t, ref[i])
 		ref[i] = i + 1
 	}
@@ -114,8 +104,8 @@ func Test_Values(t *testing.T) {
 }
 
 func Test_Present(t *testing.T) {
-	var h rankedlist.List[int32B, struct{}, int]
-	item := h.Insert(1, 0)
+	var h rankedlist.List[int32B, struct{}]
+	item := h.Insert(1)
 	assert.True(t, item.Present())
 	h.Delete(item)
 	assert.False(t, item.Present())
