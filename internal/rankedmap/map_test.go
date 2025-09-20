@@ -1,4 +1,4 @@
-package ranked_test
+package rankedmap_test
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ddirect/container/ranked"
+	"github.com/ddirect/container/internal/rankedmap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +21,7 @@ func Test_Basic(t *testing.T) {
 		V int64
 	)
 
-	m := ranked.NewMap[K, R, V]()
+	m := rankedmap.New[K, R, V]()
 	ref := make(map[K]refItem[K, R, V])
 
 	for range n {
@@ -33,12 +33,13 @@ func Test_Basic(t *testing.T) {
 		ref[k] = refItem[K, R, V]{k, r, v}
 
 		item, loaded := m.GetOrCreate(k, r)
+		assert.True(t, item.Present())
 		assert.Equal(t, found, loaded)
 
 		if loaded {
-			item.SetRank(r)
+			m.SetRank(item, r)
 		}
-		item.Value = v
+		*item.Value() = v
 
 		assert.Equal(t, k, item.Key())
 		assert.Equal(t, r, item.Rank())
@@ -66,7 +67,7 @@ func Test_Delete(t *testing.T) {
 		V int64
 	)
 
-	m := ranked.NewMap[K, R, V]()
+	m := rankedmap.New[K, R, V]()
 
 	time1 := time.Unix(1, 0)
 	time2 := time.Unix(2, 0)
@@ -86,12 +87,43 @@ func Test_Delete(t *testing.T) {
 	assert.True(t, item3.Present())
 	assert.False(t, found)
 
-	assert.True(t, m.Delete(0))
+	assert.True(t, m.DeleteKey(0))
 	assert.False(t, item1.Present())
-	assert.False(t, m.Delete(0))
-	assert.True(t, m.Delete(1))
+	assert.False(t, m.DeleteKey(0))
+	assert.True(t, m.DeleteKey(1))
 	assert.False(t, item3.Present())
-	assert.False(t, m.Delete(2))
+	assert.False(t, m.DeleteKey(2))
+}
+
+func Test_Clear(t *testing.T) {
+	type (
+		K int
+		R = int32B
+		V int64
+	)
+
+	m := rankedmap.New[K, R, V]()
+
+	const count = 1000
+	for k := range K(count) {
+		m.Set(k, R(k), V(k))
+	}
+
+	for k := range K(count) {
+		assert.True(t, m.Exists(k))
+		assert.True(t, m.Get(k).Present())
+		assert.Equal(t, R(k), m.Get(k).Rank())
+		assert.Equal(t, V(k), *m.Get(k).Value())
+	}
+
+	assert.Equal(t, count, m.Len())
+	m.Clear()
+	assert.Zero(t, m.Len())
+
+	for k := range K(count) {
+		assert.False(t, m.Exists(k))
+		assert.False(t, m.Get(k).Present())
+	}
 }
 
 func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
@@ -116,7 +148,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 		s                           stats
 	)
 	ref := make(map[K]*refItem[K, R, V])
-	m := ranked.NewMap[K, R, V]()
+	m := rankedmap.New[K, R, V]()
 
 	create := func() bool {
 		k := K(rnd.IntN(maxKey))
@@ -147,7 +179,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 		} else {
 			s.GetOrCreateExisting++
 		}
-		item.Value = v
+		*item.Value() = v
 		ri.key = k
 		ri.value = v
 
@@ -160,7 +192,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 			return false
 		}
 		item := m.Random(rnd)
-		item.Delete()
+		m.Delete(item)
 		delete(ref, item.Key())
 		s.DeleteRandom++
 		return true
@@ -171,7 +203,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 			return false
 		}
 		item := m.First()
-		item.Delete()
+		m.Delete(item)
 		delete(ref, item.Key())
 		s.DeleteFirst++
 		return true
@@ -183,7 +215,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 		}
 		r := R(rnd.IntN(maxRank))
 		item := m.Random(rnd)
-		item.SetRank(r)
+		m.SetRank(item, r)
 		ref[item.Key()].rank = r
 		s.SetRank++
 		return true

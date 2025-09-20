@@ -1,4 +1,4 @@
-package ranked_test
+package rankedmap_test
 
 import (
 	"cmp"
@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/ddirect/container"
-	"github.com/ddirect/container/ranked"
+	"github.com/ddirect/container/internal/rankedmap"
 )
 
 type LogFunc func(t *testing.T, data []byte)
@@ -75,10 +75,10 @@ func cmpOnlyKeyIfRankSame[K cmp.Ordered, R comparerWithCompare[R], V any](a, b r
 	return 0
 }
 
-func toRefItems[K cmp.Ordered, R comparerWithCompare[R], V any](it iter.Seq[*ranked.MapItem[K, R, V]]) iter.Seq[refItem[K, R, V]] {
+func toRefItems[K cmp.Ordered, R comparerWithCompare[R], V any](it iter.Seq[rankedmap.MapItem[K, R, V]]) iter.Seq[refItem[K, R, V]] {
 	return func(yield func(refItem[K, R, V]) bool) {
 		for i := range it {
-			if !yield(refItem[K, R, V]{i.Key(), i.Rank(), i.Value}) {
+			if !yield(refItem[K, R, V]{i.Key(), i.Rank(), *i.Value()}) {
 				return
 			}
 		}
