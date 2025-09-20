@@ -3,6 +3,7 @@ package rankedlist
 import (
 	"fmt"
 	"iter"
+	"math"
 	"math/rand/v2"
 	"slices"
 
@@ -10,7 +11,17 @@ import (
 )
 
 type List[R container.Comparer[R], T any] struct {
-	s []*Item[R, T]
+	s    []*Item[R, T]
+	seed int
+}
+
+func New[R container.Comparer[R], T any]() *List[R, T] {
+	// 32 bit arch: seed >= 1 << 30
+	// 64 bit arch: seed >= 1 << 62
+	const highBit = math.MaxInt>>1 + 1
+	return &List[R, T]{
+		seed: rand.Int() | highBit,
+	}
 }
 
 func (h *List[R, T]) Len() int {
@@ -39,10 +50,9 @@ func (h *List[R, T]) RemoveOrdered() iter.Seq[*Item[R, T]] {
 }
 
 func (h *List[R, T]) Insert(rank R) *Item[R, T] {
-	n := h.ulen()
 	item := &Item[R, T]{
-		rank:    rank,
-		indexP1: n + 1,
+		rank: rank,
+		idx:  h.Len() - h.seed,
 	}
 	h.s = append(h.s, item)
 	h.up(item)
@@ -68,14 +78,14 @@ func (h *List[R, T]) DeleteFirst() {
 func (h *List[R, T]) Delete(item *Item[R, T]) {
 	n := h.ulen() - 1
 	var last *Item[R, T]
-	i := item.indexP1 - 1
+	i := h.index(item)
 	if n != i {
 		if i > n {
 			panic(fmt.Errorf("deleting item with index %d outside bounds", int(i)))
 		}
 		// take the last element and store it in place of the item to be deleted
 		last = h.s[n]
-		last.indexP1 = i + 1
+		last.idx = item.idx
 		h.s[i] = last
 	}
 	item.setNotPresent()
@@ -93,8 +103,12 @@ func (h *List[R, T]) SetRank(item *Item[R, T], rank R) {
 	}
 }
 
+func (h *List[R, T]) index(item *Item[R, T]) uint {
+	return uint(h.seed + item.idx)
+}
+
 func (h *List[R, T]) parent(item *Item[R, T]) *Item[R, T] {
-	i := item.indexP1 - 1
+	i := h.index(item)
 	if i == 0 {
 		return nil
 	}
@@ -112,7 +126,7 @@ func (h *List[R, T]) up(item *Item[R, T]) {
 }
 
 func (h *List[R, T]) children(item *Item[R, T]) (c1 *Item[R, T], c2 *Item[R, T]) {
-	i := 2*item.indexP1 - 1 // i := 2*realIndex + 1 = 2*(item.indexP1-1) + 1 = 2*item.indexP1 - 1
+	i := 2*h.index(item) + 1
 	if i < h.ulen() {
 		c1 = h.s[i]
 		i++
@@ -142,7 +156,7 @@ func (h *List[R, T]) down(item *Item[R, T]) bool {
 }
 
 func (h *List[R, T]) swap(a, b *Item[R, T]) {
-	a.indexP1, b.indexP1 = b.indexP1, a.indexP1
-	h.s[a.indexP1-1] = a
-	h.s[b.indexP1-1] = b
+	a.idx, b.idx = b.idx, a.idx
+	h.s[h.index(a)] = a
+	h.s[h.index(b)] = b
 }

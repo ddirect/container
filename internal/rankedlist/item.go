@@ -5,9 +5,18 @@ import (
 )
 
 type Item[R container.Comparer[R], T any] struct {
-	value   T
-	rank    R
-	indexP1 uint // index plus 1 - if zero, the item does not belong to the container
+	value T
+	rank  R
+	idx   int // index = idx + seed
+}
+
+func (it *Item[R, T]) Present() bool {
+	// due to the high value of seed, all idx values resulting in valid indexes are negative
+	return it != nil && it.idx < 0
+}
+
+func (it *Item[R, T]) setNotPresent() {
+	it.idx = 0
 }
 
 func (it *Item[R, T]) Value() *T {
@@ -16,12 +25,4 @@ func (it *Item[R, T]) Value() *T {
 
 func (it *Item[R, T]) Rank() R {
 	return it.rank
-}
-
-func (it *Item[R, T]) Present() bool {
-	return it != nil && it.indexP1 > 0
-}
-
-func (it *Item[R, T]) setNotPresent() {
-	it.indexP1 = 0
 }
