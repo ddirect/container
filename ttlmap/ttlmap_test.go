@@ -67,7 +67,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 
 		remove := func(key int) {
 			_, ok := ref[key]
-			deleted := m.Delete(key)
+			deleted := m.DeleteKey(key)
 			assert.Equal(t, ok, deleted)
 			if ok {
 				delete(ref, key)

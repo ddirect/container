@@ -5,35 +5,13 @@ import (
 	"iter"
 	"time"
 
-	"github.com/ddirect/container/ranked"
+	"github.com/ddirect/container/internal/rankedmap"
 )
-
-type timestamp time.Duration
-
-func (t timestamp) Before(o timestamp) bool {
-	return t < o
-}
-
-func fromDuration(t time.Duration) timestamp {
-	return timestamp(t)
-}
-
-func toDuration(t timestamp) time.Duration {
-	return time.Duration(t)
-}
-
-func fromTime(t time.Time) timestamp {
-	return timestamp(t.UnixNano())
-}
-
-func getNow() timestamp {
-	return fromTime(time.Now())
-}
 
 // ttlmap.Map is a key value store where unused items are automatically removed when they expire. It is not safe to call any method concurrently
 // from different goroutines. This includes iterating on the expired items sequence.
 type Map[K comparable, V any] struct {
-	*ranked.Map[K, timestamp, V]
+	m            *rankedmap.Map[K, timestamp, V]
 	ttl          timestamp
 	accuracy     timestamp
 	queueCleanup func()
@@ -67,14 +45,14 @@ func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired fu
 	}
 
 	m := &Map[K, V]{
-		Map:      ranked.NewMap[K, timestamp, V](),
+		m:        rankedmap.New[K, timestamp, V](),
 		ttl:      fromDuration(ttl),
 		accuracy: fromDuration(accuracy),
 	}
 
 	cleanup := func(yield func(Item[K, V]) bool) {
 		now := getNow()
-		for item := range m.RemoveOrdered() {
+		for item := range m.m.RemoveOrdered() {
 			// checkTimer expects that there are no items with expiration <= now
 			if now.Before(item.Rank()) || !yield(item) {
 				break
@@ -92,16 +70,19 @@ func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired fu
 	return m
 }
 
-func (m *Map[K, V]) Set(k K, v V) MutableItem[K, V] {
+func (m *Map[K, V]) Len() int {
+	return m.m.Len()
+}
+
+func (m *Map[K, V]) Set(k K, v V) Item[K, V] {
 	item, _ := m.GetOrCreate(k)
-	item.Value = v
+	*item.Value() = v
 	return item
 }
 
-func (m *Map[K, V]) GetOrCreate(k K) (MutableItem[K, V], bool) {
+func (m *Map[K, V]) GetOrCreate(k K) (Item[K, V], bool) {
 	now := getNow()
-	rItem, found := m.Map.GetOrCreate(k, now+m.ttl)
-	item := MutableItem[K, V]{rItem}
+	item, found := m.m.GetOrCreate(k, now+m.ttl)
 	if found {
 		m.refresh(item, now)
 	}
@@ -109,33 +90,44 @@ func (m *Map[K, V]) GetOrCreate(k K) (MutableItem[K, V], bool) {
 	return item, found
 }
 
-func (m *Map[K, V]) Delete(k K) bool {
-	if m.Map.Delete(k) {
+func (m *Map[K, V]) Delete(item Item[K, V]) {
+	m.m.Delete(item)
+}
+
+func (m *Map[K, V]) DeleteKey(k K) bool {
+	if m.m.DeleteKey(k) {
 		m.checkTimer(getNow())
 		return true
 	}
 	return false
 }
 
-func (m *Map[K, V]) Get(k K) MutableItem[K, V] {
+func (m *Map[K, V]) Get(k K) Item[K, V] {
 	now := getNow()
-	rItem := m.Map.Get(k)
-	item := MutableItem[K, V]{rItem}
+	item := m.m.Get(k)
 	if item.Present() {
 		m.refresh(item, now)
 	}
 	return item
 }
 
-func (m *Map[K, V]) refresh(item MutableItem[K, V], now timestamp) {
+func (m *Map[K, V]) Exists(k K) bool {
+	return m.m.Exists(k)
+}
+
+func (m *Map[K, V]) All() iter.Seq[Item[K, V]] {
+	return m.m.All()
+}
+
+func (m *Map[K, V]) refresh(item Item[K, V], now timestamp) {
 	if item.Rank().Before(now + m.ttl - m.accuracy) {
-		item.SetRank(now + m.ttl)
+		m.m.SetRank(item, now+m.ttl)
 	}
 }
 
 func (m *Map[K, V]) checkTimer(now timestamp) {
 	if m.timer == nil && m.Len() > 0 {
-		delay := m.Map.First().Rank() - now
+		delay := m.m.First().Rank() - now
 		m.timer = time.AfterFunc(toDuration(delay+m.accuracy), m.queueCleanup)
 	} else if m.timer != nil && m.Len() == 0 {
 		if m.timer.Stop() {
