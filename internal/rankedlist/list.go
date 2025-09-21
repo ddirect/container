@@ -33,6 +33,9 @@ func (h *List[R, T]) ulen() uint {
 }
 
 func (h *List[R, T]) Clear() {
+	for _, item := range h.s {
+		item.setNotPresent()
+	}
 	clear(h.s)
 	h.s = h.s[:0]
 }
@@ -67,7 +70,7 @@ func (h *List[R, T]) Random(rnd *rand.Rand) *Item[R, T] {
 	return h.s[rnd.IntN(h.Len())]
 }
 
-func (h *List[R, T]) Values() iter.Seq[*Item[R, T]] {
+func (h *List[R, T]) All() iter.Seq[*Item[R, T]] {
 	return slices.Values(h.s)
 }
 

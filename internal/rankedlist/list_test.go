@@ -85,7 +85,7 @@ func Test_CannotDeleteTwice(t *testing.T) {
 	assert.Panics(t, func() { h.Delete(item) })
 }
 
-func Test_Values(t *testing.T) {
+func Test_All(t *testing.T) {
 	const count = 1000
 	h := rankedlist.New[int32B, int]()
 	for i := range count {
@@ -93,7 +93,7 @@ func Test_Values(t *testing.T) {
 	}
 
 	ref := make([]int, count)
-	for val := range h.Values() {
+	for val := range h.All() {
 		i := *val.Value() - 1
 		assert.Zero(t, ref[i])
 		ref[i] = i + 1
@@ -105,11 +105,21 @@ func Test_Values(t *testing.T) {
 }
 
 func Test_Present(t *testing.T) {
-	h := rankedlist.New[int32B, struct{}]()
-	item := h.Insert(1)
-	assert.True(t, item.Present())
-	h.Delete(item)
-	assert.False(t, item.Present())
+	h := rankedlist.New[int32B, int]()
+	item1 := h.Insert(1)
+	*item1.Value() = -1
+	item2 := h.Insert(2)
+	*item2.Value() = -2
+	assert.True(t, item1.Present())
+	assert.True(t, item2.Present())
+	h.Delete(item1)
+	assert.False(t, item1.Present())
+	assert.Equal(t, int32B(1), item1.Rank())
+	assert.Equal(t, -1, *item1.Value())
+	h.Clear()
+	assert.False(t, item2.Present())
+	assert.Equal(t, int32B(2), item2.Rank())
+	assert.Equal(t, -2, *item2.Value())
 }
 
 func Test_CrossListItemUse(t *testing.T) {

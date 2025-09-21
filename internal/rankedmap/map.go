@@ -71,7 +71,7 @@ func (m *Map[K, R, V]) Random(rnd *rand.Rand) MapItem[K, R, V] {
 
 func (m *Map[K, R, V]) All() iter.Seq[MapItem[K, R, V]] {
 	return func(yield func(MapItem[K, R, V]) bool) {
-		for it := range m.r.Values() {
+		for it := range m.r.All() {
 			if !yield(mapItem(it)) {
 				return
 			}
