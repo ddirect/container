@@ -119,6 +119,14 @@ func (m *Map[K, V]) All() iter.Seq[Item[K, V]] {
 	return m.m.All()
 }
 
+func (m *Map[K, V]) Clear() {
+	m.m.Clear()
+}
+
+func (m *Map[K, V]) Touch(item Item[K, V]) {
+	m.refresh(item, getNow())
+}
+
 func (m *Map[K, V]) refresh(item Item[K, V], now timestamp) {
 	if item.Rank().Before(now + m.ttl - m.accuracy) {
 		m.m.SetRank(item, now+m.ttl)
@@ -129,7 +137,7 @@ func (m *Map[K, V]) checkTimer(now timestamp) {
 	if m.timer == nil && m.Len() > 0 {
 		delay := m.m.First().Rank() - now
 		m.timer = time.AfterFunc(toDuration(delay+m.accuracy), m.queueCleanup)
-	} else if m.timer != nil && m.Len() == 0 {
+	} else if m.timer != nil && m.Len() == 0 { // TODO: see if stopping the timer is really necessary: it looks like it's not
 		if m.timer.Stop() {
 			m.timer = nil
 		}

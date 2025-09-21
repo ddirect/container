@@ -10,6 +10,7 @@ import (
 
 	"github.com/ddirect/container/ttlmap"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -229,4 +230,122 @@ func Fuzz_ItemsExpireAtTheRightTime(f *testing.F) {
 	f.Add(uint16(1), ops.toBytes())
 
 	f.Fuzz(testCore)
+}
+
+func Test_Touch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const ttl = time.Second
+		m, expired := ttlmap.New[int, int](ttl, 0)
+
+		var item [9]ttlmap.Item[int, int]
+		var offset int
+
+		assertValidData := func(i int) {
+			assert.Equal(t, offset-i, *item[i].Value())
+		}
+
+		set := func(x ...int) {
+			for _, i := range x {
+				item[i] = m.Set(i, offset-i)
+			}
+		}
+
+		touch := func(x ...int) {
+			for _, i := range x {
+				m.Touch(item[i])
+			}
+		}
+
+		deleteItem := func(x ...int) {
+			for _, i := range x {
+				m.Delete(item[i])
+			}
+		}
+
+		deleteKey := func(x ...int) {
+			for _, i := range x {
+				m.DeleteKey(i)
+			}
+		}
+
+		requirePresent := func(x ...int) {
+			for _, i := range x {
+				require.True(t, item[i].Present())
+				assertValidData(i)
+			}
+		}
+
+		assertNotPresent := func(x ...int) {
+			for _, i := range x {
+				assert.False(t, item[i].Present())
+				assertValidData(i)
+			}
+		}
+
+		assertNeverSet := func(x ...int) {
+			for _, i := range x {
+				assert.False(t, item[i].Present())
+				assert.Panics(t, func() { item[i].Key() })
+				assert.Panics(t, func() { item[i].Value() })
+				assert.Panics(t, func() { item[i].Rank() })
+			}
+		}
+
+		waitAndAssertExpired := func(x ...int) {
+			var exp []int
+			for item := range <-expired {
+				exp = append(exp, item.Key())
+			}
+			assert.ElementsMatch(t, x, exp)
+		}
+
+		/*
+			0: do nothing
+			1: set + expire
+			2: set + touch + delete item
+			3: set + touch + delete key
+			4: set + touch + expire
+			5: wait + set + touch + delete item
+			6: wait + set + touch + delete key
+			7: wait + set + expire
+			8: wait + set + wait + touch + clear
+		*/
+		assertNeverSet(0, 1, 2, 3, 4, 5, 6, 7, 8)
+
+		for offset = range 3 {
+			t0 := time.Now()
+			set(1, 2, 3, 4)
+			requirePresent(1, 2, 3, 4)
+
+			time.Sleep(ttl / 2)
+
+			t1 := time.Now()
+			requirePresent(1, 2, 3, 4)
+			set(5, 6, 7, 8)
+			touch(2, 3, 4)
+
+			waitAndAssertExpired(1)
+			assertNotPresent(1)
+			assert.Equal(t, ttl, time.Since(t0))
+
+			requirePresent(2, 3, 4, 5, 6, 7, 8)
+			deleteItem(2, 5)
+			deleteKey(3, 6)
+			assertNotPresent(2, 3, 5, 6)
+			requirePresent(4, 7, 8)
+
+			time.Sleep(ttl / 2)
+			requirePresent(4, 7, 8)
+			touch(8)
+
+			waitAndAssertExpired(4, 7)
+			assertNotPresent(4, 7)
+			assert.Equal(t, ttl, time.Since(t1))
+
+			requirePresent(8)
+			m.Clear()
+			assertNotPresent(1, 2, 3, 4, 5, 6, 7, 8)
+			assert.Zero(t, m.Len())
+		}
+	})
 }
