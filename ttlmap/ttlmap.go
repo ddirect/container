@@ -70,6 +70,10 @@ func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired fu
 	return m
 }
 
+func (m *Map[K, V]) NullItem() Item[K, V] {
+	return Item[K, V]{}
+}
+
 func (m *Map[K, V]) Len() int {
 	return m.m.Len()
 }
