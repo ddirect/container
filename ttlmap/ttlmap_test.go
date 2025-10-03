@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	useSyncTest  = true
-	methBits     = 3
-	delayBits    = 8 - methBits
-	maxDelay     = 1<<delayBits - 1
-	ttlTicks     = 25
-	accuracyTick = 5
-	marginTicks  = 10
+	useSyncTest   = true
+	methBits      = 3
+	delayBits     = 8 - methBits
+	maxDelay      = 1<<delayBits - 1
+	ttlTicks      = 25
+	accuracyTicks = 5
+	marginTicks   = 10
 )
 
 func testCore(t *testing.T, numKeys uint16, ops []byte) {
@@ -31,7 +31,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 	const (
 		tick     = time.Millisecond
 		ttl      = ttlTicks * tick
-		accuracy = accuracyTick * tick
+		accuracy = accuracyTicks * tick
 	)
 	margin := marginTicks * tick
 	if useSyncTest {
@@ -168,7 +168,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 			for item := range items {
 				elapsed := time.Since(ref[item.Key()])
 				log.Printf("key %v expired after %v", item.Key(), elapsed)
-				assert.GreaterOrEqual(t, elapsed, ttl-accuracy)
+				assert.GreaterOrEqual(t, elapsed, ttl)
 				assert.LessOrEqual(t, elapsed, ttl+accuracy+margin)
 				delete(ref, item.Key())
 				if item.Key() == storedKey {
