@@ -54,8 +54,11 @@ func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired fu
 				break
 			}
 		}
-		m.timer = nil // mark the timer as stopped
-		m.checkTimer(now)
+		if m.Len() > 0 {
+			m.startTimer(now)
+		} else {
+			m.timer = nil // mark the timer as stopped
+		}
 	}
 
 	// defining this here saves an allocation in the AfterFunc call
@@ -86,7 +89,9 @@ func (m *Map[K, V]) GetOrCreate(k K) (Item[K, V], bool) {
 	if found {
 		m.refresh(item, now)
 	}
-	m.checkTimer(now)
+	if m.timer == nil {
+		m.startTimer(now)
+	}
 	return item, found
 }
 
@@ -95,11 +100,7 @@ func (m *Map[K, V]) Delete(item Item[K, V]) {
 }
 
 func (m *Map[K, V]) DeleteKey(k K) bool {
-	if m.m.DeleteKey(k) {
-		m.checkTimer(getNow())
-		return true
-	}
-	return false
+	return m.m.DeleteKey(k)
 }
 
 func (m *Map[K, V]) Get(k K) Item[K, V] {
@@ -137,15 +138,9 @@ func (m *Map[K, V]) refresh(item Item[K, V], now timestamp) {
 	}
 }
 
-func (m *Map[K, V]) checkTimer(now timestamp) {
-	if m.timer == nil && m.Len() > 0 {
-		delay := m.m.First().Rank() - now + m.accuracyH
-		m.timer = time.AfterFunc(toDuration(delay), m.queueCleanup)
-	} else if m.timer != nil && m.Len() == 0 { // TODO: see if stopping the timer is really necessary: it looks like it's not
-		if m.timer.Stop() {
-			m.timer = nil
-		}
-	}
+func (m *Map[K, V]) startTimer(now timestamp) {
+	delay := m.m.First().Rank() - now + m.accuracyH
+	m.timer = time.AfterFunc(toDuration(delay), m.queueCleanup)
 }
 
 /*
