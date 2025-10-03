@@ -111,6 +111,10 @@ func (m *Map[K, V]) Get(k K) Item[K, V] {
 	return item
 }
 
+func (m *Map[K, V]) GetNoTouch(k K) Item[K, V] {
+	return m.m.Get(k)
+}
+
 func (m *Map[K, V]) Exists(k K) bool {
 	return m.m.Exists(k)
 }

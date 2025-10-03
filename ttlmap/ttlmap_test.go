@@ -412,3 +412,35 @@ func Test_Touch(t *testing.T) {
 		}
 	})
 }
+
+func Test_GetNoTouch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const ttl = time.Second
+		m, expired := ttlmap.New[int, int](ttl, 0)
+		assertExpired := func(expected int) {
+			count := 0
+			select {
+			case seq := <-expired:
+				for range seq {
+					count++
+				}
+			default:
+			}
+			assert.Equal(t, expected, count)
+		}
+
+		m.Set(0, 0)
+
+		time.Sleep(ttl * 2 / 3)
+		assertExpired(0)
+		assert.True(t, m.Get(0).Present())
+
+		time.Sleep(ttl * 2 / 3)
+		assertExpired(0)
+		assert.True(t, m.GetNoTouch(0).Present())
+
+		time.Sleep(ttl * 2 / 3)
+		assertExpired(1)
+		assert.False(t, m.Get(0).Present())
+	})
+}
