@@ -49,10 +49,10 @@ func Test_Basic(t *testing.T) {
 	s1 := slices.SortedFunc(maps.Values(ref), cmpRankThenKey)
 
 	// same for All()
-	s2 := slices.SortedFunc(toRefItems(m.All()), cmpRankThenKey)
+	s2 := slices.SortedFunc(toRefItems(t, m.All()), cmpRankThenKey)
 
 	// use native sorting for ranks and then only sort by key if the rank is the same
-	s3 := slices.Collect(toRefItems(m.RemoveOrdered()))
+	s3 := slices.Collect(toRefItems(t, m.RemoveOrdered()))
 	slices.SortStableFunc(s3, cmpOnlyKeyIfRankSame)
 
 	assert.Equal(t, s1, s2)
@@ -124,6 +124,52 @@ func Test_Clear(t *testing.T) {
 		assert.False(t, m.Exists(k))
 		assert.False(t, m.Get(k).Present())
 	}
+}
+
+func Test_RemoveOrdered(t *testing.T) {
+	type (
+		K = int
+		R = int32B
+		V int64
+	)
+
+	m := rankedmap.New[K, R, V]()
+
+	m.Set(3, 3, 3)
+	m.Set(2, 2, 2)
+	m.Set(1, 1, 1)
+
+	for item := range m.RemoveOrdered() {
+		assert.True(t, item.Present())
+		assert.Equal(t, 3, m.Len())
+		assert.Equal(t, 1, item.Key())
+		break
+	}
+
+	first := true
+	for item := range m.RemoveOrdered() {
+		assert.True(t, item.Present())
+		m.Delete(item)
+		assert.False(t, item.Present())
+		if first {
+			assert.Equal(t, 2, m.Len())
+			assert.Equal(t, 1, item.Key())
+			first = false
+		} else {
+			assert.Equal(t, 1, m.Len())
+			assert.Equal(t, 2, item.Key())
+			break
+		}
+	}
+
+	for item := range m.RemoveOrdered() {
+		assert.True(t, item.Present())
+		assert.Equal(t, 1, m.Len())
+		assert.Equal(t, 3, item.Key())
+		break
+	}
+
+	assert.Equal(t, 1, m.Len())
 }
 
 func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
@@ -278,7 +324,7 @@ func makeCore(log LogFunc) func(t *testing.T, seed uint64, variance int) {
 		s1 := slices.SortedFunc(dereference(maps.Values(ref)), cmpRankThenKey)
 
 		// use native sorting for ranks and then only sort by key if the rank is the same
-		s2 := slices.Collect(toRefItems(m.RemoveOrdered()))
+		s2 := slices.Collect(toRefItems(t, m.RemoveOrdered()))
 		slices.SortStableFunc(s2, cmpOnlyKeyIfRankSame)
 
 		assert.Equal(t, s1, s2)

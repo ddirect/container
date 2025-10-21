@@ -47,7 +47,9 @@ func (h *List[R, T]) RemoveOrdered() iter.Seq[*Item[R, T]] {
 			if !yield(item) {
 				return
 			}
-			h.Delete(item)
+			if item.Present() {
+				h.Delete(item)
+			}
 		}
 	}
 }

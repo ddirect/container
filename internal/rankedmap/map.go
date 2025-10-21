@@ -86,7 +86,9 @@ func (m *Map[K, R, V]) RemoveOrdered() iter.Seq[MapItem[K, R, V]] {
 			if !yield(mapItem(item)) {
 				return
 			}
-			m.deleteItem(item)
+			if item.Present() {
+				m.deleteItem(item)
+			}
 		}
 	}
 }

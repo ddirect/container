@@ -40,6 +40,7 @@ func Test_Basic(t *testing.T) {
 	toRefItems := func(it iter.Seq[*rankedlist.Item[R, T]]) iter.Seq[refItem] {
 		return func(yield func(refItem) bool) {
 			for i := range it {
+				assert.True(t, i.Present())
 				if !yield(refItem{i.Rank(), *i.Value()}) {
 					return
 				}
@@ -131,4 +132,43 @@ func Test_CrossListItemUse(t *testing.T) {
 	assert.True(t, item2.Present())
 	assert.Panics(t, func() { h1.Delete(item2) })
 	assert.Panics(t, func() { h2.Delete(item1) })
+}
+
+func Test_RemoveOrdered(t *testing.T) {
+	h := rankedlist.New[int32B, struct{}]()
+	h.Insert(3)
+	h.Insert(2)
+	h.Insert(1)
+
+	for item := range h.RemoveOrdered() {
+		assert.True(t, item.Present())
+		assert.Equal(t, 3, h.Len())
+		assert.Equal(t, int32B(1), item.Rank())
+		break
+	}
+
+	first := true
+	for item := range h.RemoveOrdered() {
+		assert.True(t, item.Present())
+		h.Delete(item)
+		assert.False(t, item.Present())
+		if first {
+			assert.Equal(t, 2, h.Len())
+			assert.Equal(t, int32B(1), item.Rank())
+			first = false
+		} else {
+			assert.Equal(t, 1, h.Len())
+			assert.Equal(t, int32B(2), item.Rank())
+			break
+		}
+	}
+
+	for item := range h.RemoveOrdered() {
+		assert.True(t, item.Present())
+		assert.Equal(t, 1, h.Len())
+		assert.Equal(t, int32B(3), item.Rank())
+		break
+	}
+
+	assert.Equal(t, 1, h.Len())
 }
