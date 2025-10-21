@@ -166,6 +166,7 @@ func testCore(t *testing.T, numKeys uint16, ops []byte) {
 		expiredKeyOffset := 1
 		handleExpired := func(items iter.Seq[ttlmap.Item[int, struct{}]]) {
 			for item := range items {
+				assert.False(t, item.Present())
 				elapsed := time.Since(ref[item.Key()])
 				log.Printf("key %v expired after %v", item.Key(), elapsed)
 				assert.GreaterOrEqual(t, elapsed, ttl)
@@ -333,14 +334,14 @@ func Test_Touch(t *testing.T) {
 
 		requirePresent := func(x ...int) {
 			for _, i := range x {
-				require.True(t, item[i].Present())
+				require.True(t, item[i].Present(), "item %d is not present", i)
 				assertValidData(i)
 			}
 		}
 
 		assertNotPresent := func(x ...int) {
 			for _, i := range x {
-				assert.False(t, item[i].Present())
+				assert.False(t, item[i].Present(), "item %d is present", i)
 				assertValidData(i)
 			}
 		}
@@ -357,6 +358,7 @@ func Test_Touch(t *testing.T) {
 		waitAndAssertExpired := func(x ...int) {
 			var exp []int
 			for item := range <-expired {
+				assert.False(t, item.Present())
 				exp = append(exp, item.Key())
 			}
 			assert.ElementsMatch(t, x, exp)
@@ -421,7 +423,8 @@ func Test_GetNoTouch(t *testing.T) {
 			count := 0
 			select {
 			case seq := <-expired:
-				for range seq {
+				for item := range seq {
+					assert.False(t, item.Present())
 					count++
 				}
 			default:

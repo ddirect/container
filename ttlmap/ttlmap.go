@@ -50,7 +50,12 @@ func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired fu
 		now := getNow()
 		for item := range m.m.RemoveOrdered() {
 			// checkTimer expects that there are no items with expiration <= now
-			if now.Before(item.Rank()) || !yield(item) {
+			if now.Before(item.Rank()) {
+				break
+			}
+			// yield the item after deleting it, so that it appears as not present in the map
+			m.m.Delete(item)
+			if !yield(item) {
 				break
 			}
 		}
