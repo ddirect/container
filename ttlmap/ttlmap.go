@@ -48,10 +48,18 @@ func NewAsync[K comparable, V any](ttl, accuracy time.Duration, handleExpired fu
 
 	cleanup := func(yield func(Item[K, V]) bool) {
 		now := getNow()
-		for item := range m.m.RemoveOrdered() {
+		for m.m.Len() > 0 {
+			item := m.m.First()
 			// checkTimer expects that there are no items with expiration <= now
-			if now.Before(item.Rank()) || !yield(item) {
+			if now.Before(item.Rank()) {
 				break
+			}
+			if !yield(item) {
+				break
+			}
+			// it the item is touched in the callback, it is not removed
+			if !now.Before(item.Rank()) {
+				m.m.Delete(item)
 			}
 		}
 		if m.Len() > 0 {

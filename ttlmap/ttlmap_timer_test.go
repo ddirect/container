@@ -31,6 +31,7 @@ func insertCore(t *testing.T, ttlTicks, accuracyTicks int, delays []byte) (count
 			mutex.Lock()
 			defer mutex.Unlock()
 			for item := range expired {
+				assert.True(t, item.Present())
 				elapsed := time.Since(ref[item.Key()])
 				require.Zero(t, elapsed%tick)
 				count[int(elapsed/tick)]++
