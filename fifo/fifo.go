@@ -20,3 +20,7 @@ func (f *Fifo[T]) Dequeue() (t T, ok bool) {
 func (f *Fifo[T]) Len() int {
 	return len(f.s)
 }
+
+func (f *Fifo[T]) Clear() {
+	f.s = nil
+}
